@@ -27,10 +27,13 @@ class HTCondorQueueConf:
     # HTCondor working directory
     htcondor_folder: str = "${hydra.sweep.dir}/.htcondor"
 
+    # Development helper – run jobs locally without HTCondor
+    use_local_mode: bool = False
+
 
 ConfigStore.instance().store(
     group="hydra/launcher",
-    name="htcondor_launcher",
+    name="htcondor",
     node=HTCondorQueueConf(),
     provider="htcondor_launcher",
 )
