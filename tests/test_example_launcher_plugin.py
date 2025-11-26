@@ -13,7 +13,7 @@ from omegaconf import OmegaConf
 
 # Create a mock htcondor module before importing the launcher
 mock_htcondor = MagicMock()
-sys.modules["htcondor2"] = mock_htcondor
+sys.modules["htcondor"] = mock_htcondor
 
 
 from hydra_plugins.hydra_htcondor_launcher.config import HTCondorQueueConf
@@ -90,6 +90,27 @@ class TestHTCondorLauncherSetup:
         assert launcher.config == mock_config
         assert launcher.hydra_context == mock_context
         assert launcher.task_function == mock_task_function
+
+
+class TestHTCondorLauncherLocalMode:
+    """Test the launcher local/dev mode."""
+
+    def test_local_mode_runs_jobs_without_htcondor(self, tmp_path: Path) -> None:
+        """Local mode should execute jobs directly instead of submitting to HTCondor."""
+        launcher = HTCondorLauncher(use_local_mode=True)
+        launcher.config = OmegaConf.create({"hydra": {"sweep": {"dir": str(tmp_path)}}})
+        launcher.hydra_context = MagicMock()
+        launcher.task_function = MagicMock()
+
+        job_return = JobReturn()
+        job_return.status = JobStatus.COMPLETED
+
+        launcher._execute_job = MagicMock(return_value=job_return)
+
+        results = launcher.launch([["db=postgresql"]], initial_job_idx=0)
+
+        assert results == [job_return]
+        launcher._execute_job.assert_called_once()
 
 
 class TestHTCondorExecutor:
@@ -251,6 +272,49 @@ class TestHTCondorExecutor:
         assert "htcondor_runner.py" in submit_dict["transfer_input_files"]
         assert submit_dict["when_to_transfer_output"] == "ON_EXIT"
         assert "transfer_output_files" in submit_dict
+
+    def test_executor_respects_custom_paths(self, tmp_path: Path) -> None:
+        """Test that user-specified submit parameters override defaults when allowed."""
+        params = {
+            "executable": "/bin/bash",
+            "error": "outputs/custom.err",
+            "output": "outputs/custom.out",
+            "log": "outputs/custom.log",
+            "transfer_input_files": "shared.dat",
+            "transfer_output_files": "metrics.json",
+            "transfer_output_remaps": '"metrics.json=metrics.json"',
+        }
+
+        test_htcondor = MagicMock()
+        mock_schedd = MagicMock()
+        mock_submit_result = MagicMock()
+        mock_submit_result.cluster.return_value = 123
+        mock_schedd.submit.return_value = mock_submit_result
+        test_htcondor.Schedd.return_value = mock_schedd
+
+        launcher = HTCondorLauncher(**params)
+        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+
+        executor.map_array(
+            [
+                (["db=mysql"], "hydra.sweep.dir", 0, "job_0", {}),
+            ]
+        )
+
+        submit_call = test_htcondor.Submit.call_args
+        submit_dict = submit_call[0][0]
+
+        assert submit_dict["executable"] == "/bin/bash"
+        assert submit_dict["error"] == "outputs/custom.err"
+        assert submit_dict["output"] == "outputs/custom.out"
+        assert submit_dict["log"] == "outputs/custom.log"
+        assert "shared.dat" in submit_dict["transfer_input_files"]
+        assert "job.pkl" in submit_dict["transfer_input_files"]
+        assert "htcondor_runner.py" in submit_dict["transfer_input_files"]
+        assert submit_dict["transfer_output_files"].startswith("metrics.json")
+        assert "job.result.pkl" in submit_dict["transfer_output_files"]
+        assert submit_dict["transfer_output_remaps"].startswith('"metrics.json=metrics.json"')
+        assert "job.result.pkl" in submit_dict["transfer_output_remaps"]
 
 
 class TestHTCondorJob:

@@ -3,10 +3,9 @@ name = "hydra-htcondor-launcher"
 version = "0.1.0"
 description = "Hydra launcher plugin for HTCondor clusters"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.8"
 dependencies = [
     "cloudpickle>=3.0.0",
-    "htcondor>=25.1.0; sys_platform == 'linux'",
     "hydra-core>=1.3.2",
 ]
 
@@ -17,4 +16,4 @@ dev = ["pytest>=7.0.0"]
 htcondor_launcher = "hydra_plugins.hydra_htcondor_launcher"
 
 [dependency-groups]
-dev = ["pytest>=9.0.1"]
+dev = ["pytest>=7.0.0"]

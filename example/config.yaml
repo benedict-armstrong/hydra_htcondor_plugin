@@ -5,7 +5,7 @@ epochs: 10
 
 # Use HTCondor launcher for multirun
 defaults:
-    - override hydra/launcher: htcondor_launcher
+    - override hydra/launcher: htcondor
 
 # Sweep configuration (3x3 = 9 jobs)
 hydra:
@@ -18,3 +18,5 @@ hydra:
         request_memory: '4000'
         request_cpus: '1'
         request_gpus: '0'
+        # Set to false to submit to a real HTCondor cluster
+        use_local_mode: true

@@ -22,7 +22,7 @@ pip install htcondor
 
 The HTCondor launcher configuration supports all standard HTCondor submission parameters:
 
-```yaml title="hydra_plugins/hydra_htcondor_launcher/conf/hydra/launcher/htcondor.yaml"
+```yaml
 # Custom executable (optional) - if not specified, uses Python
 executable: "/path/to/executable.sh"
 
@@ -44,6 +44,9 @@ MaxTime: 28800  # 8 hours
 
 # Any additional HTCondor parameters
 periodic_remove: "(JobStatus =?= 2) && ((CurrentTime - JobCurrentStartDate) >= $(MaxTime))"
+
+# Local development helper (runs jobs sequentially without HTCondor)
+use_local_mode: false
 ```
 
 ### HTCondor Variable Substitution
@@ -81,9 +84,9 @@ python my_app.py --multirun hydra/launcher=htcondor db=postgresql,mysql
 
 ## Example
 
-Run the example application:
+Run the example application (this defaults to `use_local_mode=true`, so it runs entirely locally and does not require an HTCondor installation):
 ```bash
-python example/my_app.py --multirun db=postgresql,mysql
+uv run example/my_app.py --multirun
 ```
 
 Expected output:
@@ -94,6 +97,8 @@ Expected output:
 [2024-01-01 10:00:00,000] -     #1 : db=mysql
 [2024-01-01 10:00:01,000] - Submitted HTCondor cluster 12345 with 2 jobs
 ```
+
+To submit to a real cluster, set `hydra.launcher.use_local_mode=false` (either in `example/config.yaml` or via the command line) so that jobs are sent through the HTCondor scheduler.
 
 ## Features
 

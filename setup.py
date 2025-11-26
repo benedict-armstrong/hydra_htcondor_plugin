@@ -26,10 +26,8 @@ with open("README.md") as fh:
             "Operating System :: OS Independent",
         ],
         install_requires=[
-            # consider pinning to a specific major version of Hydra to avoid unexpected problems
-            # if a new major version of Hydra introduces breaking changes for plugins.
-            # e.g: "hydra-core==1.0.*",
-            "hydra-core",
+            "hydra-core>=1.3.2",
+            "cloudpickle>=3.0.0",
         ],
         # If this plugin is providing configuration files, be sure to include them in the package.
         # See MANIFEST.in.

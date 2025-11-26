@@ -1,0 +1,10 @@
+# @package hydra.launcher
+_target_: hydra_plugins.hydra_htcondor_launcher.htcondor_launcher.HTCondorLauncher
+
+request_memory: "4000"
+request_cpus: "1"
+request_gpus: "0"
+requirements:
+MaxTime: 28800
+htcondor_folder: ${hydra.sweep.dir}/.htcondor
+use_local_mode: false

@@ -1,4 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+import importlib
 import logging
 import sys
 from pathlib import Path
@@ -101,8 +102,6 @@ class HTCondorLauncher(Launcher):
         self, job_overrides: Sequence[Sequence[str]], initial_job_idx: int
     ) -> Sequence[JobReturn]:
         """Launch jobs using HTCondor."""
-        # lazy import to ensure plugin discovery remains fast
-        import htcondor2 as htcondor
 
         assert self.config is not None
         assert self.hydra_context is not None
@@ -118,7 +117,12 @@ class HTCondorLauncher(Launcher):
         sweep_dir = Path(str(self.config.hydra.sweep.dir))
         sweep_dir.mkdir(parents=True, exist_ok=True)
 
-        log.info("Submitting jobs to HTCondor")
+        use_local_mode = bool(self.params.get("use_local_mode", False))
+
+        if use_local_mode:
+            log.info("HTCondor launcher running in local mode (no HTCondor submission)")
+        else:
+            log.info("Submitting jobs to HTCondor")
         log.info(
             f"HTCondor config: memory={self.params.get('request_memory', '4000')}MB, "
             f"cpus={self.params.get('request_cpus', '1')}, "
@@ -149,6 +153,11 @@ class HTCondorLauncher(Launcher):
                 )
             )
 
+        if use_local_mode:
+            return [self._execute_job(params) for params in job_params]
+
+        htcondor = self._load_htcondor_module()
+
         # Create HTCondor executor with reference to this launcher
         executor = HTCondorExecutor(htcondor_dir, self.params, htcondor, self)
 
@@ -157,6 +166,28 @@ class HTCondorLauncher(Launcher):
 
         # Wait for results
         return [j.result() for j in jobs]
+
+    def _execute_job(self, job_param: Any) -> JobReturn:
+        """Execute a single job locally (used for development mode)."""
+        overrides, job_dir_key, job_idx, job_id, singleton_state = job_param
+        return self(
+            overrides,
+            job_dir_key,
+            job_idx,
+            job_id,
+            singleton_state,
+        )
+
+    @staticmethod
+    def _load_htcondor_module() -> Any:
+        """Import the htcondor module with a clearer error message."""
+        try:
+            return importlib.import_module("htcondor")
+        except ImportError as exc:  # pragma: no cover - executed only when missing dependency
+            raise RuntimeError(
+                "htcondor Python bindings are required. Install `htcondor` or set "
+                "`hydra.launcher.use_local_mode=true` for local testing."
+            ) from exc
 
     def __call__(
         self,
@@ -356,22 +387,41 @@ class HTCondorExecutor:
 
             # Create HTCondor submit description
             submit_dict = {
-                "executable": sys.executable,
+                "executable": str(self.params.get("executable", sys.executable)),
                 "arguments": f"{self._runner_path} {job_pickle}",
-                "output": str(job_output),
-                "error": str(job_error),
-                "log": str(job_log),
+                "output": str(self.params.get("output", job_output)),
+                "error": str(self.params.get("error", job_error)),
+                "log": str(self.params.get("log", job_log)),
                 "request_memory": str(self.params.get("request_memory", "4000")),
                 "request_cpus": str(self.params.get("request_cpus", "1")),
                 "request_gpus": str(self.params.get("request_gpus", "0")),
-                "should_transfer_files": "YES",
-                "transfer_input_files": f"{job_pickle},{self._runner_path}",
-                "when_to_transfer_output": "ON_EXIT",
-                "transfer_output_files": str(result_pickle.name),
-                "transfer_output_remaps": f'"{result_pickle.name}={result_pickle}"',
-                "getenv": "True",
+                "should_transfer_files": str(
+                    self.params.get("should_transfer_files", "YES")
+                ),
+                "when_to_transfer_output": str(
+                    self.params.get("when_to_transfer_output", "ON_EXIT")
+                ),
+                "getenv": str(self.params.get("getenv", "True")),
                 "initialdir": str(job_dir),
             }
+
+            transfer_inputs = [str(job_pickle), str(self._runner_path)]
+            user_transfer_inputs = self.params.get("transfer_input_files")
+            if user_transfer_inputs:
+                transfer_inputs.append(str(user_transfer_inputs))
+            submit_dict["transfer_input_files"] = ",".join(transfer_inputs)
+
+            transfer_outputs = [str(result_pickle.name)]
+            user_transfer_outputs = self.params.get("transfer_output_files")
+            if user_transfer_outputs:
+                transfer_outputs.insert(0, str(user_transfer_outputs))
+            submit_dict["transfer_output_files"] = ",".join(transfer_outputs)
+
+            transfer_output_remaps = [f'"{result_pickle.name}={result_pickle}"']
+            user_output_remaps = self.params.get("transfer_output_remaps")
+            if user_output_remaps:
+                transfer_output_remaps.insert(0, str(user_output_remaps))
+            submit_dict["transfer_output_remaps"] = ";".join(transfer_output_remaps)
 
             # Add requirements if specified
             if "requirements" in self.params:
@@ -380,9 +430,11 @@ class HTCondorExecutor:
             # Add MaxTime and periodic_remove if specified
             if "MaxTime" in self.params:
                 submit_dict["MaxTime"] = str(self.params["MaxTime"])
-                submit_dict["periodic_remove"] = (
-                    f"(JobStatus =?= 2) && ((CurrentTime - JobCurrentStartDate) >= {self.params['MaxTime']})"
-                )
+                if "periodic_remove" not in self.params:
+                    submit_dict["periodic_remove"] = (
+                        "(JobStatus =?= 2) && "
+                        f"((CurrentTime - JobCurrentStartDate) >= {self.params['MaxTime']})"
+                    )
 
             # Add any additional custom parameters
             reserved_keys = {
@@ -406,6 +458,8 @@ class HTCondorExecutor:
                 "htcondor_folder",
                 "requirements",
                 "MaxTime",
+                "periodic_remove",
+                "use_local_mode",
             }
             for key, value in self.params.items():
                 if key not in reserved_keys:
