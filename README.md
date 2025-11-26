@@ -13,9 +13,11 @@ This plugin provides a custom Launcher for Hydra that submits multirun jobs to H
 pip install -e .
 ```
 
-2. Make sure HTCondor Python bindings are installed:
+2. Install the HTCondor Python bindings when you plan to submit to a real cluster. Use the optional `htcondor` extra so dependency managers keep the requirement in sync:
 ```bash
-pip install htcondor
+pip install ".[htcondor]"
+# or, if you use uv:
+uv sync --group htcondor
 ```
 
 ## Configuration
@@ -99,6 +101,12 @@ Expected output:
 ```
 
 To submit to a real cluster, set `hydra.launcher.use_local_mode=false` (either in `example/config.yaml` or via the command line) so that jobs are sent through the HTCondor scheduler.
+Make sure the `htcondor` extra is installed first, e.g.:
+```bash
+pip install ".[htcondor]"
+# or
+uv sync --group htcondor
+```
 
 ## Features
 
