@@ -167,7 +167,7 @@ class TestHTCondorExecutor:
         test_htcondor = MagicMock()
         params = {"request_memory": "4000", "request_cpus": "1"}
         launcher = HTCondorLauncher(**params)
-        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
 
         assert executor.folder == tmp_path
         assert executor.params == params
@@ -179,7 +179,7 @@ class TestHTCondorExecutor:
         test_htcondor = MagicMock()
         params = {"request_memory": "4000"}
         launcher = HTCondorLauncher(**params)
-        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
 
         runner_path = tmp_path / "htcondor_runner.py"
         assert runner_path.exists()
@@ -206,7 +206,7 @@ class TestHTCondorExecutor:
         test_htcondor.Schedd.return_value = mock_schedd
 
         launcher = HTCondorLauncher(**params)
-        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
 
         job_params = [
             (["db=mysql"], "hydra.sweep.dir", 0, "job_0", {}),
@@ -242,7 +242,7 @@ class TestHTCondorExecutor:
         test_htcondor.Schedd.return_value = mock_schedd
 
         launcher = HTCondorLauncher(**params)
-        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
 
         job_params = [
             (["db=mysql"], "hydra.sweep.dir", 0, "job_0", {}),
@@ -279,7 +279,7 @@ class TestHTCondorExecutor:
         test_htcondor.Schedd.return_value = mock_schedd
 
         launcher = HTCondorLauncher(**params)
-        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
 
         job_params = [
             (["param=1"], "hydra.sweep.dir", 0, "job_0", {}),
@@ -304,7 +304,7 @@ class TestHTCondorExecutor:
         test_htcondor.Schedd.return_value = mock_schedd
 
         launcher = HTCondorLauncher(**params)
-        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
 
         job_params = [
             (["db=mysql"], "hydra.sweep.dir", 0, "job_0", {}),
@@ -343,7 +343,7 @@ class TestHTCondorExecutor:
         test_htcondor.Schedd.return_value = mock_schedd
 
         launcher = HTCondorLauncher(**params)
-        executor = HTCondorExecutor(tmp_path, params, test_htcondor, launcher)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
 
         executor.map_array(
             [
@@ -365,6 +365,29 @@ class TestHTCondorExecutor:
         assert "job.result.pkl" in submit_dict["transfer_output_files"]
         assert submit_dict["transfer_output_remaps"].startswith('"metrics.json=metrics.json"')
         assert "job.result.pkl" in submit_dict["transfer_output_remaps"]
+
+    def test_executor_skips_none_requirements(self, tmp_path: Path) -> None:
+        """None requirements should not emit invalid constraint."""
+        params = {"request_memory": "4000", "requirements": None}
+
+        test_htcondor = MagicMock()
+        mock_schedd = MagicMock()
+        mock_submit_result = MagicMock()
+        mock_submit_result.cluster.return_value = 123
+        mock_schedd.submit.return_value = mock_submit_result
+        test_htcondor.Schedd.return_value = mock_schedd
+
+        launcher = HTCondorLauncher(**params)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
+        executor.map_array(
+            [
+                (["db=mysql"], "hydra.sweep.dir", 0, "job_0", {}),
+            ]
+        )
+
+        submit_call = test_htcondor.Submit.call_args
+        submit_dict = submit_call[0][0]
+        assert "requirements" not in submit_dict
 
 
 class TestHTCondorJob:

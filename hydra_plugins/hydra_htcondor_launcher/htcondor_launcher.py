@@ -81,6 +81,8 @@ class HTCondorLauncher(Launcher):
         for k, v in params.items():
             if OmegaConf.is_config(v):
                 v = OmegaConf.to_container(v, resolve=True)
+            if v is None:
+                continue
             self.params[k] = v
 
         log.info(f"HTCondor launcher initialized with params: {self.params}")
