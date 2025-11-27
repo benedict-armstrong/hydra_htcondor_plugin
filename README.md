@@ -119,6 +119,7 @@ By default the launcher queues jobs and returns immediately. Every submission is
 ```bash
 condor_rm <ClusterId>
 ```
+Hydra will receive a placeholder `JobReturn` whose `return_value` looks like `{"status": "submitted", "cluster_id": 16635976, ...}` to make it clear the work is still running remotely.
 Set `wait_for_jobs=true` if you prefer the launcher to block until all jobs finish.
 
 ## Features

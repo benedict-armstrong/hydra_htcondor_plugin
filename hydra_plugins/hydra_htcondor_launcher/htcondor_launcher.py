@@ -175,7 +175,11 @@ class HTCondorLauncher(Launcher):
         log.info(
             "Non-blocking mode enabled; returning immediately after job submission."
         )
-        return [self._build_nonblocking_return(overrides) for overrides, *_ in job_params]
+        submission_lookup = {entry["job_index"]: entry for entry in submissions}
+        return [
+            self._build_nonblocking_return(job_param, submission_lookup.get(job_param[2]))
+            for job_param in job_params
+        ]
 
     def _execute_job(self, job_param: Any) -> JobReturn:
         """Execute a single job locally (used for development mode)."""
@@ -202,11 +206,26 @@ class HTCondorLauncher(Launcher):
             "for local testing."
         )
 
-    def _build_nonblocking_return(self, overrides: List[str]) -> JobReturn:
+    def _build_nonblocking_return(
+        self,
+        job_param: Any,
+        submission: Optional[Dict[str, Any]],
+    ) -> JobReturn:
         """Create a placeholder JobReturn for non-blocking submissions."""
+        overrides, job_dir_key, job_idx, job_id, _ = job_param
         job_return = JobReturn()
         job_return.overrides = overrides
-        job_return.status = JobStatus.UNKNOWN
+        job_return.status = JobStatus.COMPLETED
+        job_return.return_value = {
+            "status": "submitted",
+            "cluster_id": submission.get("cluster_id") if submission else None,
+            "proc_id": submission.get("proc_id") if submission else None,
+            "job_index": job_idx,
+            "job_dir": submission.get("job_dir") if submission else None,
+            "message": (
+                "Job submitted to HTCondor and continues running asynchronously."
+            ),
+        }
         return job_return
 
     def _record_submissions(

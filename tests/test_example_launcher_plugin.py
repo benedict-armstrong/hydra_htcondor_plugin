@@ -121,10 +121,18 @@ class TestSubmissionTracking:
     def test_build_nonblocking_return_marks_unknown(self) -> None:
         """Non-blocking placeholder should mark status as UNKNOWN."""
         launcher = HTCondorLauncher()
-        result = launcher._build_nonblocking_return(["a=1"])
+        job_param = (["a=1"], "hydra.sweep.dir", 0, "job_0", {})
+        submission = {
+            "cluster_id": 12345,
+            "proc_id": 0,
+            "job_dir": "/tmp/job_0",
+        }
+        result = launcher._build_nonblocking_return(job_param, submission)
 
-        assert result.status == JobStatus.UNKNOWN
+        assert result.status == JobStatus.COMPLETED
         assert result.overrides == ["a=1"]
+        assert result.return_value["cluster_id"] == 12345
+        assert result.return_value["job_index"] == 0
 
     def test_record_submissions_writes_cache(self, tmp_path: Path) -> None:
         """Submission metadata should be appended to cache file."""
