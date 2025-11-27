@@ -138,8 +138,9 @@ class HTCondorLauncher(Launcher):
             "htcondor_folder", "${hydra.sweep.dir}/.htcondor"
         )
         htcondor_folder = htcondor_folder.replace("${hydra.sweep.dir}", str(sweep_dir))
-        htcondor_dir = Path(htcondor_folder)
+        htcondor_dir = Path(htcondor_folder).expanduser()
         htcondor_dir.mkdir(parents=True, exist_ok=True)
+        htcondor_dir = htcondor_dir.resolve()
 
         # Create job parameters
         job_params: List[Any] = []
@@ -442,6 +443,16 @@ class HTCondorExecutor:
         self._runner_path = runner_path
         return runner_path
 
+    @staticmethod
+    def _ensure_absolute_path(path_value: Any, base_dir: Path) -> str:
+        """Convert user-provided path to an absolute path based on job dir."""
+        path = Path(str(path_value)).expanduser()
+        if not path.is_absolute():
+            path = (base_dir / path).resolve()
+        else:
+            path = path.resolve()
+        return str(path)
+
     def map_array(self, job_params: List[Any]) -> Tuple[List["HTCondorJob"], List[Dict[str, Any]]]:
         """Submit array of jobs to HTCondor using pickle serialization."""
         jobs: List[HTCondorJob] = []
@@ -456,6 +467,7 @@ class HTCondorExecutor:
             # Create job-specific paths
             job_dir = self.folder / f"job_{job_idx}"
             job_dir.mkdir(exist_ok=True)
+            job_dir = job_dir.resolve()
 
             job_pickle = job_dir / "job.pkl"
             result_pickle = job_dir / "job.result.pkl"
@@ -473,12 +485,28 @@ class HTCondorExecutor:
                 cloudpickle.dump(job_data, f)
 
             # Create HTCondor submit description
+            output_path = (
+                self._ensure_absolute_path(self.params["output"], job_dir)
+                if "output" in self.params
+                else str(job_output)
+            )
+            error_path = (
+                self._ensure_absolute_path(self.params["error"], job_dir)
+                if "error" in self.params
+                else str(job_error)
+            )
+            log_path = (
+                self._ensure_absolute_path(self.params["log"], job_dir)
+                if "log" in self.params
+                else str(job_log)
+            )
+
             submit_dict = {
                 "executable": str(self.params.get("executable", sys.executable)),
                 "arguments": f"{self._runner_path} {job_pickle}",
-                "output": str(self.params.get("output", job_output)),
-                "error": str(self.params.get("error", job_error)),
-                "log": str(self.params.get("log", job_log)),
+                "output": output_path,
+                "error": error_path,
+                "log": log_path,
                 "request_memory": str(self.params.get("request_memory", "4000")),
                 "request_cpus": str(self.params.get("request_cpus", "1")),
                 "request_gpus": str(self.params.get("request_gpus", "0")),

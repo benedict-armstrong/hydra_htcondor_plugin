@@ -354,10 +354,11 @@ class TestHTCondorExecutor:
         submit_call = test_htcondor.Submit.call_args
         submit_dict = submit_call[0][0]
 
+        expected_job_dir = (tmp_path / "job_0").resolve()
         assert submit_dict["executable"] == "/bin/bash"
-        assert submit_dict["error"] == "outputs/custom.err"
-        assert submit_dict["output"] == "outputs/custom.out"
-        assert submit_dict["log"] == "outputs/custom.log"
+        assert submit_dict["error"] == str(expected_job_dir / "outputs/custom.err")
+        assert submit_dict["output"] == str(expected_job_dir / "outputs/custom.out")
+        assert submit_dict["log"] == str(expected_job_dir / "outputs/custom.log")
         assert "shared.dat" in submit_dict["transfer_input_files"]
         assert "job.pkl" in submit_dict["transfer_input_files"]
         assert "htcondor_runner.py" in submit_dict["transfer_input_files"]
@@ -388,6 +389,39 @@ class TestHTCondorExecutor:
         submit_call = test_htcondor.Submit.call_args
         submit_dict = submit_call[0][0]
         assert "requirements" not in submit_dict
+
+    def test_executor_preserves_absolute_output_paths(self, tmp_path: Path) -> None:
+        """Absolute paths should be respected as-is."""
+        abs_error = str((tmp_path / "custom.err").resolve())
+        abs_output = str((tmp_path / "custom.out").resolve())
+        abs_log = str((tmp_path / "custom.log").resolve())
+        params = {
+            "request_memory": "4000",
+            "error": abs_error,
+            "output": abs_output,
+            "log": abs_log,
+        }
+
+        test_htcondor = MagicMock()
+        mock_schedd = MagicMock()
+        mock_submit_result = MagicMock()
+        mock_submit_result.cluster.return_value = 123
+        mock_schedd.submit.return_value = mock_submit_result
+        test_htcondor.Schedd.return_value = mock_schedd
+
+        launcher = HTCondorLauncher(**params)
+        executor = HTCondorExecutor(tmp_path, launcher.params, test_htcondor, launcher)
+        executor.map_array(
+            [
+                (["db=mysql"], "hydra.sweep.dir", 0, "job_0", {}),
+            ]
+        )
+
+        submit_call = test_htcondor.Submit.call_args
+        submit_dict = submit_call[0][0]
+        assert submit_dict["error"] == abs_error
+        assert submit_dict["output"] == abs_output
+        assert submit_dict["log"] == abs_log
 
 
 class TestHTCondorJob:
