@@ -29,10 +29,21 @@ log = logging.getLogger(__name__)
 # Runner script that gets executed by HTCondor on compute nodes
 RUNNER_SCRIPT = '''#!/usr/bin/env python3
 """HTCondor job runner - unpickles and executes the Hydra task."""
+import pickle
 import sys
+import traceback
 from pathlib import Path
 
-import cloudpickle
+
+def _write_failure(result_path: Path, message, tb=None) -> None:
+    payload = {
+        "status": "error",
+        "exception": message,
+        "traceback": tb,
+    }
+    with open(result_path, "wb") as f:
+        pickle.dump(payload, f)
+
 
 def main():
     if len(sys.argv) != 2:
@@ -43,9 +54,19 @@ def main():
     result_pickle = job_pickle.with_suffix(".result.pkl")
 
     try:
+        import cloudpickle  # type: ignore
+    except ImportError as exc:
+        _write_failure(
+            result_pickle,
+            "cloudpickle is required on execution nodes. Install via `pip install cloudpickle`.",
+            traceback.format_exc(),
+        )
+        sys.exit(1)
+
+    try:
         # Load the pickled job
         with open(job_pickle, "rb") as f:
-            job_data = cloudpickle.load(f)
+            job_data = cloudpickle.load(f)  # type: ignore[name-defined]
 
         launcher = job_data["launcher"]
         args = job_data["args"]
@@ -55,18 +76,12 @@ def main():
 
         # Save the result
         with open(result_pickle, "wb") as f:
-            cloudpickle.dump({"status": "success", "result": result}, f)
+            cloudpickle.dump({"status": "success", "result": result}, f)  # type: ignore[name-defined]
 
-    except Exception as e:
-        import traceback
-        # Save the exception
-        with open(result_pickle, "wb") as f:
-            cloudpickle.dump({
-                "status": "error",
-                "exception": e,
-                "traceback": traceback.format_exc()
-            }, f)
+    except Exception as e:  # noqa: BLE001
+        _write_failure(result_pickle, repr(e), traceback.format_exc())
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -664,7 +664,6 @@ class TestRunnerScript:
             result_data = cloudpickle.load(f)
 
         assert result_data["status"] == "error"
-        assert isinstance(result_data["exception"], ValueError)
         assert "Intentional failure" in str(result_data["exception"])
         assert "traceback" in result_data
 
