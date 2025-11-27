@@ -45,6 +45,27 @@ wheels = [
 ]
 
 [[package]]
+name = "htcondor"
+version = "25.4.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/09/8c/577d0edb5b17c3cae3bd95b319414cf51f017344f8848c00ae9ed07983eb/htcondor-25.4.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:2c39998132291561c5825c6ed2ad3f7b677df098b0b8ede7c27ed957bca69a88", size = 49804109, upload-time = "2025-11-13T16:13:37.721Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/b4/e4fe84aa9f19848cc9a32552c5e76d5bc3d5b4d47cc12e106654c802fd7b/htcondor-25.4.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:c1168b90fc316965363804f4907b62fd959f7d2b050d4aaaff834ff9dde4d6b0", size = 51191416, upload-time = "2025-11-13T16:13:40.443Z" },
+    { url = "https://files.pythonhosted.org/packages/02/3c/fce334499f1256b7a5c503dcc01d34223a967c937dba32c29c4e604a4672/htcondor-25.4.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:bbcd5db07d037d9c00931e742d72d6866bb8de97c936bf0a9df7b273ac16430e", size = 49803232, upload-time = "2025-11-13T16:13:43.334Z" },
+    { url = "https://files.pythonhosted.org/packages/87/bd/c66d3945376d0cd20e759d7f1f0f619495c02aea5618c16cdd75039eb6a0/htcondor-25.4.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:39c2dc6ff02dbb076ac8adabc28c4b215468f3756120887252c2225cb035bad7", size = 51188256, upload-time = "2025-11-13T16:13:46.479Z" },
+    { url = "https://files.pythonhosted.org/packages/04/53/c356440f8ec19038ce399fddbdae410b26c019def14f2387b5cc564fe8ae/htcondor-25.4.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:0bb45f57b133e3606fcdec12a041043355eb77041bdc3c406e93e9ca84a755e8", size = 49794894, upload-time = "2025-11-13T16:13:49.025Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/6d/dab41a2cc59e510b0503e1f390f00bf17096e4e73bf45d7257e9edf56965/htcondor-25.4.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:541e4a584a6789f79339f8a4acc29342ba6b6043fc871321a100dd75882c14f7", size = 51188459, upload-time = "2025-11-13T16:13:51.741Z" },
+    { url = "https://files.pythonhosted.org/packages/15/7b/69664daecd90ad34bf781151abc3f61cea5bedb250d9ed7a1341cb9c3a76/htcondor-25.4.0-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:3ddf94edaef2b24c6c4590a25be1ab51576ddd52b35610593bbc0ec325c269cb", size = 49807392, upload-time = "2025-11-13T16:13:54.58Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/2d/b7d0b4a48eedf9748a6dfe76d23c22863f435c1f802081ae9fe47e336f35/htcondor-25.4.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:ebd2fe14f8e151e6733f577d576b9ea769b5a23cdbfb03f9f4a97fa07d10fcec", size = 51200682, upload-time = "2025-11-13T16:13:57.638Z" },
+    { url = "https://files.pythonhosted.org/packages/88/d8/19384f35f2455876b31373436dbcd9c96a1f449d42cf4300ebf39aa33d2f/htcondor-25.4.0-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:9cc1e7bb8f3d821e15aa57c2676ff469d721246ba2ca8d0c4abbe634b298d2b4", size = 49810893, upload-time = "2025-11-13T16:14:00.381Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/52/198e810608ec1457e27be432f361187f1831351e43253882ccd8a1b1d799/htcondor-25.4.0-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:5088bad8823e4667e8f52c58bb766afb01113db43acef0f8726e79c70b1ec318", size = 51196058, upload-time = "2025-11-13T16:14:03.156Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/de/a6c39849d49504caaf88b1fda0a57e697c84d07d93ce5a5d0e656988c371/htcondor-25.4.0-cp38-cp38-manylinux_2_28_aarch64.whl", hash = "sha256:7d494840e516ebf1b65fa2f612227ab12f26c201c12466f50435fb2df2922eb9", size = 49798111, upload-time = "2025-11-13T16:14:06.929Z" },
+    { url = "https://files.pythonhosted.org/packages/05/e5/ee3bb22f6fcf67103e8594b6d57b02b7c254e447f98ea3b20476cf1a3187/htcondor-25.4.0-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:0ba86bdc2bad911781c82df390f288fb1913f013e5f1f64402331553d7a032d8", size = 51189695, upload-time = "2025-11-13T16:14:09.586Z" },
+    { url = "https://files.pythonhosted.org/packages/06/6d/f0d7ee29436b6016241477ff006fa90c3da269b665468e41db3f2a48ddcd/htcondor-25.4.0-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:cacea5e4590a5d3606e6129db098e9aaace4372083a9bac3d936fd02424b1b0f", size = 49802958, upload-time = "2025-11-13T16:14:12.653Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/d5/ecd972c84b5f2b64620985ed609664e8cd91c0a57701bc6ba49ada044cf2/htcondor-25.4.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:ed2bb8398d8cc370820ba68c9abe340537e5eff20dfa95db9c75a38dc90f1c2d", size = 51190033, upload-time = "2025-11-13T16:14:15.552Z" },
+]
+
+[[package]]
 name = "hydra-core"
 version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -74,6 +95,9 @@ dev = [
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "pytest", version = "9.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
+htcondor = [
+    { name = "htcondor" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -81,17 +105,22 @@ dev = [
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "pytest", version = "9.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
+htcondor = [
+    { name = "htcondor" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "cloudpickle", specifier = ">=3.0.0" },
+    { name = "htcondor", marker = "extra == 'htcondor'", specifier = ">=24.0.0" },
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "htcondor"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=7.0.0" }]
+htcondor = [{ name = "htcondor", specifier = ">=24.0.0" }]
 
 [[package]]
 name = "importlib-resources"

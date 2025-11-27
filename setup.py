@@ -33,4 +33,8 @@ with open("README.md") as fh:
         # See MANIFEST.in.
         # For configurations to be discoverable at runtime, they should also be added to the search path.
         include_package_data=True,
+        extras_require={
+            "htcondor": ["htcondor>=24.0.0"],
+            "dev": ["pytest>=7.0.0"],
+        },
     )

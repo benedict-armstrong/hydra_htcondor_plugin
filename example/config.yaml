@@ -18,5 +18,5 @@ hydra:
         request_memory: '4000'
         request_cpus: '1'
         request_gpus: '0'
-        # Set to false to submit to a real HTCondor cluster
+        # Example overrides default (false) so local testing doesn't require HTCondor
         use_local_mode: true

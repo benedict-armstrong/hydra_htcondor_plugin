@@ -13,9 +13,11 @@ This plugin provides a custom Launcher for Hydra that submits multirun jobs to H
 pip install -e .
 ```
 
-2. Make sure HTCondor Python bindings are installed:
+2. Install the HTCondor Python bindings when you plan to submit to a real cluster. Use the optional `htcondor` extra so dependency managers keep the requirement in sync (the launcher imports `htcondor2` first, then falls back to `htcondor`):
 ```bash
-pip install htcondor
+pip install ".[htcondor]"
+# or, if you use uv:
+uv sync --group htcondor
 ```
 
 ## Configuration
@@ -35,6 +37,7 @@ log: "outputs/$(Cluster)_$(Process).log"
 request_memory: "64000"  # Memory in MB
 request_cpus: "8"        # Number of CPUs
 request_gpus: "1"        # Number of GPUs
+priority: 10             # Optional HTCondor priority boost
 
 # HTCondor job constraints
 requirements: "TARGET.CUDAGlobalMemoryMb > 64000"
@@ -45,9 +48,13 @@ MaxTime: 28800  # 8 hours
 # Any additional HTCondor parameters
 periodic_remove: "(JobStatus =?= 2) && ((CurrentTime - JobCurrentStartDate) >= $(MaxTime))"
 
-# Local development helper (runs jobs sequentially without HTCondor)
-use_local_mode: false
+# Control blocking behavior (defaults shown)
+use_local_mode: false        # Run jobs locally when true
+wait_for_jobs: false         # When false, exit right after queueing the jobs
+submission_cache_file: ${hydra.sweep.dir}/.htcondor/submitted_jobs.json
 ```
+
+Any other HTCondor submit attribute (for example `environment`, `periodic_remove`, or custom file paths) can be added directly under `hydra.launcher` and will be forwarded untouched.
 
 ### HTCondor Variable Substitution
 
@@ -99,6 +106,21 @@ Expected output:
 ```
 
 To submit to a real cluster, set `hydra.launcher.use_local_mode=false` (either in `example/config.yaml` or via the command line) so that jobs are sent through the HTCondor scheduler.
+Make sure the `htcondor` extra is installed first, e.g.:
+```bash
+pip install ".[htcondor]"
+# or
+uv sync --group htcondor
+```
+
+### Tracking & canceling queued jobs
+
+By default the launcher queues jobs and returns immediately. Every submission is appended to `submitted_jobs.json` inside the `.htcondor` folder (override via `submission_cache_file`). The file contains each HTCondor `ClusterId`, so you can later cancel the sweep with:
+```bash
+condor_rm <ClusterId>
+```
+Hydra will receive a placeholder `JobReturn` whose `return_value` looks like `{"status": "submitted", "cluster_id": 16635976, ...}` to make it clear the work is still running remotely.
+Set `wait_for_jobs=true` if you prefer the launcher to block until all jobs finish.
 
 ## Features
 
