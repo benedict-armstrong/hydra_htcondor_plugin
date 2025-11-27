@@ -8,3 +8,6 @@ requirements:
 MaxTime: 28800
 htcondor_folder: ${hydra.sweep.dir}/.htcondor
 use_local_mode: false
+wait_for_jobs: false
+priority:
+submission_cache_file: ${hydra.sweep.dir}/.htcondor/submitted_jobs.json

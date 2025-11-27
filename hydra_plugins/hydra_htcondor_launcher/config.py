@@ -30,6 +30,15 @@ class HTCondorQueueConf:
     # Development helper – run jobs locally without HTCondor
     use_local_mode: bool = False
 
+    # Optional HTCondor priority (higher number == higher priority)
+    priority: Optional[int] = None
+
+    # Whether to block until every HTCondor job finishes
+    wait_for_jobs: bool = False
+
+    # Location to store submitted job metadata for later cancellation
+    submission_cache_file: Optional[str] = "${hydra.sweep.dir}/.htcondor/submitted_jobs.json"
+
 
 ConfigStore.instance().store(
     group="hydra/launcher",

@@ -1,9 +1,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import importlib
+import json
 import logging
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import cloudpickle
 
@@ -161,11 +163,19 @@ class HTCondorLauncher(Launcher):
         # Create HTCondor executor with reference to this launcher
         executor = HTCondorExecutor(htcondor_dir, self.params, htcondor, self)
 
-        # Submit jobs
-        jobs = executor.map_array(job_params)
+        # Submit jobs (returns submitted job metadata for tracking)
+        jobs, submissions = executor.map_array(job_params)
+        self._record_submissions(submissions, sweep_dir, htcondor_dir)
 
-        # Wait for results
-        return [j.result() for j in jobs]
+        wait_for_jobs = bool(self.params.get("wait_for_jobs", False))
+        if wait_for_jobs:
+            # Block until HTCondor finishes processing the array
+            return [j.result() for j in jobs]
+
+        log.info(
+            "Non-blocking mode enabled; returning immediately after job submission."
+        )
+        return [self._build_nonblocking_return(overrides) for overrides, *_ in job_params]
 
     def _execute_job(self, job_param: Any) -> JobReturn:
         """Execute a single job locally (used for development mode)."""
@@ -180,14 +190,69 @@ class HTCondorLauncher(Launcher):
 
     @staticmethod
     def _load_htcondor_module() -> Any:
-        """Import the htcondor module with a clearer error message."""
-        try:
-            return importlib.import_module("htcondor")
-        except ImportError as exc:  # pragma: no cover - executed only when missing dependency
-            raise RuntimeError(
-                "htcondor Python bindings are required. Install `htcondor` or set "
-                "`hydra.launcher.use_local_mode=true` for local testing."
-            ) from exc
+        """Import the htcondor module (htcondor2 fallback) with a clearer error message."""
+        for module_name in ("htcondor2", "htcondor"):
+            try:
+                return importlib.import_module(module_name)
+            except ImportError:
+                continue
+        raise RuntimeError(
+            "htcondor Python bindings are required. Install the `htcondor` extra "
+            "(imports htcondor2/htcondor) or set `hydra.launcher.use_local_mode=true` "
+            "for local testing."
+        )
+
+    def _build_nonblocking_return(self, overrides: List[str]) -> JobReturn:
+        """Create a placeholder JobReturn for non-blocking submissions."""
+        job_return = JobReturn()
+        job_return.overrides = overrides
+        job_return.status = JobStatus.UNKNOWN
+        return job_return
+
+    def _record_submissions(
+        self,
+        submissions: List[Dict[str, Any]],
+        sweep_dir: Path,
+        htcondor_dir: Path,
+    ) -> None:
+        """Persist submitted job metadata for easier follow-up or cancellation."""
+        if not submissions:
+            return
+
+        record_path_value = self.params.get("submission_cache_file")
+        if record_path_value:
+            record_path_str = record_path_value.replace(
+                "${hydra.sweep.dir}", str(sweep_dir)
+            )
+        else:
+            record_path_str = str(htcondor_dir / "submitted_jobs.json")
+
+        record_path = Path(record_path_str)
+        record_path.parent.mkdir(parents=True, exist_ok=True)
+
+        existing: List[Dict[str, Any]] = []
+        if record_path.exists():
+            try:
+                existing = json.loads(record_path.read_text())
+            except Exception as exc:  # pragma: no cover - best effort
+                log.warning(
+                    "Failed to read existing submission cache %s: %s", record_path, exc
+                )
+
+        entry = {
+            "submitted_at": datetime.now(tz=timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z"),
+            "sweep_dir": str(sweep_dir),
+            "jobs": submissions,
+        }
+        existing.append(entry)
+        record_path.write_text(json.dumps(existing, indent=2))
+        log.info(
+            "Recorded %s HTCondor job(s) to %s",
+            len(submissions),
+            record_path,
+        )
 
     def __call__(
         self,
@@ -356,9 +421,10 @@ class HTCondorExecutor:
         self._runner_path = runner_path
         return runner_path
 
-    def map_array(self, job_params: List[Any]) -> List["HTCondorJob"]:
+    def map_array(self, job_params: List[Any]) -> Tuple[List["HTCondorJob"], List[Dict[str, Any]]]:
         """Submit array of jobs to HTCondor using pickle serialization."""
-        jobs = []
+        jobs: List[HTCondorJob] = []
+        submissions: List[Dict[str, Any]] = []
         schedd = self.htcondor.Schedd()
 
         for job_param in job_params:
@@ -404,6 +470,10 @@ class HTCondorExecutor:
                 "getenv": str(self.params.get("getenv", "True")),
                 "initialdir": str(job_dir),
             }
+
+            priority = self.params.get("priority")
+            if priority is not None:
+                submit_dict["priority"] = str(priority)
 
             transfer_inputs = [str(job_pickle), str(self._runner_path)]
             user_transfer_inputs = self.params.get("transfer_input_files")
@@ -460,6 +530,9 @@ class HTCondorExecutor:
                 "MaxTime",
                 "periodic_remove",
                 "use_local_mode",
+                "wait_for_jobs",
+                "submission_cache_file",
+                "priority",
             }
             for key, value in self.params.items():
                 if key not in reserved_keys:
@@ -471,6 +544,15 @@ class HTCondorExecutor:
 
             cluster_id = submit_result.cluster()
             log.info(f"Submitted job {job_idx} as HTCondor job {cluster_id}.0")
+            submissions.append(
+                {
+                    "job_index": job_idx,
+                    "cluster_id": cluster_id,
+                    "proc_id": 0,
+                    "job_dir": str(job_dir),
+                    "overrides": list(overrides),
+                }
+            )
 
             # Create HTCondorJob wrapper
             htcondor_job = HTCondorJob(
@@ -484,4 +566,4 @@ class HTCondorExecutor:
             )
             jobs.append(htcondor_job)
 
-        return jobs
+        return jobs, submissions

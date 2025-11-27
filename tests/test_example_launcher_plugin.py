@@ -1,4 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -14,6 +15,7 @@ from omegaconf import OmegaConf
 # Create a mock htcondor module before importing the launcher
 mock_htcondor = MagicMock()
 sys.modules["htcondor"] = mock_htcondor
+sys.modules["htcondor2"] = mock_htcondor
 
 
 from hydra_plugins.hydra_htcondor_launcher.config import HTCondorQueueConf
@@ -113,6 +115,42 @@ class TestHTCondorLauncherLocalMode:
         launcher._execute_job.assert_called_once()
 
 
+class TestSubmissionTracking:
+    """Tests for submission caching and non-blocking helpers."""
+
+    def test_build_nonblocking_return_marks_unknown(self) -> None:
+        """Non-blocking placeholder should mark status as UNKNOWN."""
+        launcher = HTCondorLauncher()
+        result = launcher._build_nonblocking_return(["a=1"])
+
+        assert result.status == JobStatus.UNKNOWN
+        assert result.overrides == ["a=1"]
+
+    def test_record_submissions_writes_cache(self, tmp_path: Path) -> None:
+        """Submission metadata should be appended to cache file."""
+        cache_file = tmp_path / "submitted_jobs.json"
+        launcher = HTCondorLauncher(submission_cache_file=str(cache_file))
+        sweep_dir = tmp_path / "sweep"
+        sweep_dir.mkdir()
+
+        submissions = [
+            {
+                "job_index": 0,
+                "cluster_id": 1001,
+                "proc_id": 0,
+                "job_dir": str(tmp_path / "job_0"),
+                "overrides": ["a=1"],
+            }
+        ]
+
+        launcher._record_submissions(submissions, sweep_dir, tmp_path)
+
+        assert cache_file.exists()
+        data = json.loads(cache_file.read_text())
+        assert data[-1]["jobs"] == submissions
+        assert data[-1]["sweep_dir"] == str(sweep_dir)
+
+
 class TestHTCondorExecutor:
     """Test HTCondorExecutor functionality."""
 
@@ -149,6 +187,7 @@ class TestHTCondorExecutor:
             "request_gpus": "2",
             "requirements": "TARGET.CUDAGlobalMemoryMb > 40000",
             "MaxTime": 3600,
+            "priority": 50,
         }
 
         test_htcondor = MagicMock()
@@ -165,7 +204,7 @@ class TestHTCondorExecutor:
             (["db=mysql"], "hydra.sweep.dir", 0, "job_0", {}),
         ]
 
-        jobs = executor.map_array(job_params)
+        jobs, submissions = executor.map_array(job_params)
 
         # Verify submit was called
         assert mock_schedd.submit.called
@@ -179,6 +218,9 @@ class TestHTCondorExecutor:
         assert submit_dict["request_gpus"] == "2"
         assert submit_dict["requirements"] == "TARGET.CUDAGlobalMemoryMb > 40000"
         assert submit_dict["MaxTime"] == "3600"
+        assert submit_dict["priority"] == "50"
+        assert submissions[0]["cluster_id"] == 12345
+        assert submissions[0]["job_index"] == 0
 
     def test_executor_creates_pickle_files(self, tmp_path: Path) -> None:
         """Test that executor creates pickle files for each job."""
@@ -199,7 +241,7 @@ class TestHTCondorExecutor:
             (["db=postgres"], "hydra.sweep.dir", 1, "job_1", {}),
         ]
 
-        jobs = executor.map_array(job_params)
+        jobs, _ = executor.map_array(job_params)
 
         # Check pickle files were created
         for i in range(2):
@@ -236,7 +278,7 @@ class TestHTCondorExecutor:
             (["param=2"], "hydra.sweep.dir", 1, "job_1", {}),
         ]
 
-        jobs = executor.map_array(job_params)
+        jobs, _ = executor.map_array(job_params)
 
         assert len(jobs) == 2
         assert all(type(job).__name__ == "HTCondorJob" for job in jobs)
@@ -575,6 +617,12 @@ class TestHTCondorQueueConf:
         assert conf.MaxTime == 28800  # 8 hours in seconds
         assert conf.requirements is None
         assert conf.htcondor_folder == "${hydra.sweep.dir}/.htcondor"
+        assert conf.priority is None
+        assert conf.wait_for_jobs is False
+        assert (
+            conf.submission_cache_file
+            == "${hydra.sweep.dir}/.htcondor/submitted_jobs.json"
+        )
 
     def test_target_class(self) -> None:
         """Test that _target_ points to correct class."""
